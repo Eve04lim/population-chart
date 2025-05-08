@@ -1,3 +1,4 @@
+// jest.config.mjs
 import nextJest from 'next/jest.js';
 
 const createJestConfig = nextJest({
@@ -28,6 +29,14 @@ const customJestConfig = {
     }],
   },
   moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx'],
+  testTimeout: 30000, // テストのタイムアウトを30秒に設定
+  verbose: true, // 詳細なテスト結果を表示
+  maxWorkers: '50%', // テスト実行に使用するCPUの割合を制限
+  globals: {
+    'ts-jest': {
+      isolatedModules: true, // 各テストファイルを独立して実行
+    },
+  },
 };
 
 // createJestConfigを定義することによって、本ファイルで定義された設定がNext.jsの設定に反映される
