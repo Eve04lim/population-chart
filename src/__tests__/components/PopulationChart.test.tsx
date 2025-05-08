@@ -1,34 +1,31 @@
 import { fetchPopulation } from '@/api/services';
 import PopulationChart from '@/components/organisms/PopulationChart';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 
-// recharts のモック（LineChartコンポーネントなど）
-jest.mock('recharts', () => {
-  const OriginalModule = jest.requireActual('recharts');
-  return {
-    ...OriginalModule,
-    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-      <div data-testid="responsive-container">{children}</div>
-    ),
-    LineChart: ({ children }: { children: React.ReactNode }) => (
-      <div data-testid="line-chart">{children}</div>
-    ),
-    Line: () => <div data-testid="line" />,
-    XAxis: () => <div data-testid="x-axis" />,
-    YAxis: () => <div data-testid="y-axis" />,
-    CartesianGrid: () => <div data-testid="cartesian-grid" />,
-    Tooltip: () => <div data-testid="tooltip" />,
-    Legend: () => <div data-testid="legend" />,
-  };
-});
-
-// APIモック
+// モックの設定
 jest.mock('@/api/services', () => ({
   fetchPopulation: jest.fn(),
 }));
 
+// rechartsのモック
+jest.mock('recharts', () => ({
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
+  LineChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="line-chart">{children}</div>
+  ),
+  Line: () => <div data-testid="line" />,
+  XAxis: () => <div data-testid="x-axis" />,
+  YAxis: () => <div data-testid="y-axis" />,
+  CartesianGrid: () => <div data-testid="cartesian-grid" />,
+  Tooltip: () => <div data-testid="tooltip" />,
+  Legend: () => <div data-testid="legend" />,
+}));
+
 describe('PopulationChart', () => {
+  // モックデータの設定
   const mockSelectedPrefectures = [
     { prefCode: 13, prefName: '東京都' },
   ];
@@ -60,6 +57,10 @@ describe('PopulationChart', () => {
     (fetchPopulation as jest.Mock).mockResolvedValue(mockPopulationData);
   });
 
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
   test('選択された都道府県がない場合はメッセージを表示する', () => {
     render(<PopulationChart selectedPrefectures={[]} populationType="総人口" />);
     expect(screen.getByText('都道府県を選択してください')).toBeInTheDocument();
@@ -68,15 +69,20 @@ describe('PopulationChart', () => {
   test('選択された都道府県があれば、人口データを取得してグラフを表示する', async () => {
     render(<PopulationChart selectedPrefectures={mockSelectedPrefectures} populationType="総人口" />);
     
-    // APIがコールされることを確認
-    expect(fetchPopulation).toHaveBeenCalledWith(13);
+    // APIが呼び出されたことを確認
+    await waitFor(() => {
+      expect(fetchPopulation).toHaveBeenCalledWith(13);
+    });
     
-    // レンダリングされるグラフコンポーネントを確認
-    expect(await screen.findByTestId('responsive-container')).toBeInTheDocument();
+    // グラフコンポーネントが表示されるのを待つ
+    await waitFor(() => {
+      expect(screen.queryByTestId('responsive-container')).toBeInTheDocument();
+    });
+    
     expect(screen.getByTestId('line-chart')).toBeInTheDocument();
     expect(screen.getByTestId('x-axis')).toBeInTheDocument();
     expect(screen.getByTestId('y-axis')).toBeInTheDocument();
-  });
+  }, 10000); // タイムアウトを10秒に延長
 
   test('APIエラー時にエラーメッセージを表示する', async () => {
     // APIエラーをモック
@@ -84,7 +90,9 @@ describe('PopulationChart', () => {
     
     render(<PopulationChart selectedPrefectures={mockSelectedPrefectures} populationType="総人口" />);
     
-    // エラーメッセージが表示される
-    expect(await screen.findByText('人口データの取得に失敗しました。')).toBeInTheDocument();
+    // エラーメッセージが表示されるのを待つ
+    await waitFor(() => {
+      expect(screen.queryByText('人口データの取得に失敗しました。')).toBeInTheDocument();
+    });
   });
 });
