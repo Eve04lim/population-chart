@@ -21,10 +21,10 @@ interface PopulationChartProps {
 
 // 人口タイプの英語名（APIのレスポンスに対応）
 const populationTypeMap: Record<string, string> = {
-  '総人口': '総人口',
-  '年少人口': '年少人口',
-  '生産年齢人口': '生産年齢人口',
-  '老年人口': '老年人口',
+    '総人口': '総人口',
+    '年少人口': '年少人口',
+    '生産年齢人口': '生産年齢人口',
+    '老年人口': '老年人口',
 };
 
 interface PrefecturePopulation {
@@ -65,7 +65,9 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
   // APIから人口データを取得する関数
   const fetchPrefectureData = useCallback(async (prefecture: Prefecture) => {
     try {
+      console.log(`Fetching data for ${prefecture.prefName}...`);
       const result = await fetchPopulation(prefecture.prefCode);
+      console.log(`Data received for ${prefecture.prefName}:`, result);
       return {
         prefCode: prefecture.prefCode,
         prefName: prefecture.prefName,
