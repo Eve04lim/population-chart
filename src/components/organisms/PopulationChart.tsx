@@ -1,7 +1,8 @@
 import { fetchPopulation } from '@/api/services';
+// 未使用の型インポートを削除
 import type { PopulationData, Prefecture } from '@/api/types';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     CartesianGrid,
     Legend,
@@ -42,45 +43,76 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chartData, setChartData] = useState<ChartData[]>([]);
+  
+  // prefPopulationsの最新値にアクセスするためのref
+  const prefPopulationsRef = useRef<PrefecturePopulation[]>([]);
+  
+  // refを更新
+  useEffect(() => {
+    prefPopulationsRef.current = prefPopulations;
+  }, [prefPopulations]);
+
+  // selectedPrefecturesの情報をメモ化
+  const selectedPrefInfo = useMemo(() => {
+    const codes = selectedPrefectures.map(pref => pref.prefCode);
+    const names = selectedPrefectures.map(pref => pref.prefName);
+    const prefMap = new Map(selectedPrefectures.map(pref => [pref.prefCode, pref]));
+    const isEmpty = selectedPrefectures.length === 0;
+    
+    return { codes, names, prefMap, isEmpty };
+  }, [selectedPrefectures]);
+
+  // APIから人口データを取得する関数
+  const fetchPrefectureData = useCallback(async (prefecture: Prefecture) => {
+    try {
+      const result = await fetchPopulation(prefecture.prefCode);
+      return {
+        prefCode: prefecture.prefCode,
+        prefName: prefecture.prefName,
+        data: result.data,
+      };
+    } catch (err) {
+      console.error(`Error fetching population data for ${prefecture.prefName}:`, err);
+      throw err;
+    }
+  }, []);
 
   // 選択された都道府県が変更されたら、対応する人口データを取得
   useEffect(() => {
     const fetchData = async () => {
-      if (selectedPrefectures.length === 0) {
+      if (selectedPrefInfo.isEmpty) {
         setPrefPopulations([]);
         return;
       }
 
       setLoading(true);
+      setError(null);
+      
       try {
-        // 未取得の都道府県のみAPIリクエストを行う
-        const fetchPromises = selectedPrefectures
-          .filter((pref) => !prefPopulations.some((p) => p.prefCode === pref.prefCode))
-          .map(async (pref) => {
-            const result = await fetchPopulation(pref.prefCode);
-            return {
-              prefCode: pref.prefCode,
-              prefName: pref.prefName,
-              data: result.data,
-            };
-          });
-
-        const newPopulations = await Promise.all(fetchPromises);
+        // 現在のprefPopulationsを取得 (refから)
+        const currentPopulations = [...prefPopulationsRef.current];
         
-        // 既存のデータと新しいデータを結合
-        setPrefPopulations((prev) => {
-          const updatedPops = [...prev];
-          
-          // 選択されていない都道府県を除外
-          const filteredPops = updatedPops.filter((pop) => 
-            selectedPrefectures.some((pref) => pref.prefCode === pop.prefCode)
-          );
-          
-          // 新しいデータを追加
-          return [...filteredPops, ...newPopulations];
-        });
+        // 選択されていない都道府県を除外
+        const filteredPopulations = currentPopulations.filter(pop => 
+          selectedPrefInfo.codes.includes(pop.prefCode)
+        );
         
-        setError(null);
+        // まだデータを取得していない都道府県を特定
+        const prefecturesToFetch = Array.from(selectedPrefInfo.prefMap.values()).filter(
+          pref => !filteredPopulations.some(p => p.prefCode === pref.prefCode)
+        );
+        
+        if (prefecturesToFetch.length > 0) {
+          // 新たに選択された都道府県のデータをフェッチ
+          const newDataPromises = prefecturesToFetch.map(fetchPrefectureData);
+          const newData = await Promise.all(newDataPromises);
+          
+          // 新しいデータと既存のデータを結合
+          setPrefPopulations([...filteredPopulations, ...newData]);
+        } else if (filteredPopulations.length !== currentPopulations.length) {
+          // 選択解除された都道府県がある場合、フィルタリングした結果を設定
+          setPrefPopulations(filteredPopulations);
+        }
       } catch (err) {
         setError('人口データの取得に失敗しました。');
         console.error('Error fetching population data:', err);
@@ -90,7 +122,7 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
     };
 
     fetchData();
-  }, [selectedPrefectures, prefPopulations]);
+  }, [selectedPrefInfo, fetchPrefectureData]);
 
   // 選択された都道府県または人口タイプが変更されたら、グラフデータを作成
   useEffect(() => {
@@ -154,7 +186,7 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
     return value.toString();
   };
 
-  if (selectedPrefectures.length === 0) {
+  if (selectedPrefInfo.isEmpty) {
     return (
       <div className="bg-gray-50 p-8 rounded-md text-center text-gray-500">
         <p>都道府県を選択してください</p>
