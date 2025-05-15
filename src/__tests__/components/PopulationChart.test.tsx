@@ -1,11 +1,19 @@
 import { fetchPopulation } from '@/api/services';
 import PopulationChart from '@/components/organisms/PopulationChart';
+import { downloadCSV, generateCSV } from '@/utils/csv';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type React from 'react';
 
 // モックの設定
 jest.mock('@/api/services', () => ({
   fetchPopulation: jest.fn(),
+}));
+
+// CSVユーティリティのモック
+jest.mock('@/utils/csv', () => ({
+  generateCSV: jest.fn().mockReturnValue('mock-csv-data'),
+  downloadCSV: jest.fn(),
 }));
 
 // rechartsのモック
@@ -28,6 +36,7 @@ describe('PopulationChart', () => {
   // モックデータの設定
   const mockSelectedPrefectures = [
     { prefCode: 13, prefName: '東京都' },
+    { prefCode: 27, prefName: '大阪府' },
   ];
 
   const mockPopulationData = {
@@ -72,6 +81,7 @@ describe('PopulationChart', () => {
     // APIが呼び出されたことを確認
     await waitFor(() => {
       expect(fetchPopulation).toHaveBeenCalledWith(13);
+      expect(fetchPopulation).toHaveBeenCalledWith(27);
     });
     
     // グラフコンポーネントが表示されるのを待つ
@@ -94,5 +104,70 @@ describe('PopulationChart', () => {
     await waitFor(() => {
       expect(screen.queryByText('人口データの取得に失敗しました。')).toBeInTheDocument();
     });
+  });
+
+  test('CSVダウンロードボタンが表示される', async () => {
+    render(<PopulationChart selectedPrefectures={mockSelectedPrefectures} populationType="総人口" />);
+    
+    // データ読み込み完了とグラフ表示を待つ
+    await waitFor(() => {
+      expect(screen.queryByTestId('responsive-container')).toBeInTheDocument();
+    });
+    
+    // CSVダウンロードボタンが表示されていることを確認
+    const downloadButton = screen.getByTestId('csv-download-button');
+    expect(downloadButton).toBeInTheDocument();
+    expect(downloadButton).toHaveTextContent('CSVダウンロード');
+  });
+
+  test('CSVダウンロードボタンをクリックするとダウンロード処理が実行される', async () => {
+    const user = userEvent.setup();
+    
+    render(<PopulationChart selectedPrefectures={mockSelectedPrefectures} populationType="総人口" />);
+    
+    // データ読み込み完了とグラフ表示を待つ
+    await waitFor(() => {
+      expect(screen.queryByTestId('responsive-container')).toBeInTheDocument();
+    });
+    
+    // CSVダウンロードボタンを取得してクリック
+    const downloadButton = screen.getByTestId('csv-download-button');
+    await user.click(downloadButton);
+    
+    // generateCSVが呼び出されたことを確認
+    expect(generateCSV).toHaveBeenCalled();
+    
+    // downloadCSVが呼び出されたことを確認
+    expect(downloadCSV).toHaveBeenCalled();
+    // 日付があるためパラメータを厳密に指定せず、関数が呼ばれたことのみを確認
+  });
+
+  test('詳細表示ボタンをクリックするとテーブルが表示される', async () => {
+    const user = userEvent.setup();
+    
+    render(<PopulationChart selectedPrefectures={mockSelectedPrefectures} populationType="総人口" />);
+    
+    // データ読み込み完了とグラフ表示を待つ
+    await waitFor(() => {
+      expect(screen.queryByTestId('responsive-container')).toBeInTheDocument();
+    });
+    
+    // 初期状態ではテーブルは表示されていない
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    
+    // 詳細表示ボタンを取得してクリック
+    const detailButton = screen.getByText('詳細を表示');
+    await user.click(detailButton);
+    
+    // テーブルが表示されることを確認
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    
+    // テーブルには都道府県名が表示されている
+    expect(screen.getByText('東京都')).toBeInTheDocument();
+    expect(screen.getByText('大阪府')).toBeInTheDocument();
+    
+    // 再度クリックするとテーブルが非表示になる
+    await user.click(screen.getByText('詳細を隠す'));
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 });
