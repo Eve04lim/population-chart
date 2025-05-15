@@ -50,17 +50,17 @@ const PrefectureSelector: React.FC<PrefectureSelectorProps> = ({ onPrefectureCha
     
     if (allSelected) {
       // 全解除
-      prefectures.forEach(pref => {
+      for (const pref of prefectures) {
         onPrefectureChange(pref, false);
-      });
+      }
       setSelectedPrefCodes([]);
     } else {
       // 全選択
-      prefectures.forEach(pref => {
+      for (const pref of prefectures) {
         if (!selectedPrefCodes.includes(pref.prefCode)) {
           onPrefectureChange(pref, true);
         }
-      });
+      }
       setSelectedPrefCodes(prefectures.map(pref => pref.prefCode));
     }
   };
@@ -92,7 +92,7 @@ const PrefectureSelector: React.FC<PrefectureSelectorProps> = ({ onPrefectureCha
       <div className="mb-4 flex flex-col sm:flex-row justify-between gap-2">
         <div className="relative">
           <input
-            type="text"
+            type="search"
             placeholder="都道府県を検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -101,6 +101,7 @@ const PrefectureSelector: React.FC<PrefectureSelectorProps> = ({ onPrefectureCha
           />
           {searchTerm && (
             <button
+              type="button"
               onClick={() => setSearchTerm('')}
               className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
               aria-label="検索をクリア"
@@ -110,6 +111,7 @@ const PrefectureSelector: React.FC<PrefectureSelectorProps> = ({ onPrefectureCha
           )}
         </div>
         <button
+          type="button"
           onClick={handleToggleAll}
           className={`rounded-md px-4 py-2 text-white ${
             selectedPrefCodes.length === prefectures.length
