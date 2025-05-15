@@ -1,5 +1,6 @@
 import { fetchPopulation } from '@/api/services';
 import type { PopulationData, Prefecture } from '@/api/types';
+import { downloadCSV, generateCSV } from '@/utils/csv';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -9,6 +10,7 @@ import {
   LineChart,
   ResponsiveContainer,
   Tooltip,
+  type TooltipProps,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -36,6 +38,19 @@ interface ChartData {
   year: number;
   [key: string]: number | string;
 }
+
+// recharts の tooltip 型
+type TooltipContentProps = TooltipProps<number, string> & {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number;
+    payload: ChartData;
+    dataKey: string;
+    color: string;
+  }>;
+  label?: string;
+};
 
 const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, populationType }) => {
   const [prefPopulations, setPrefPopulations] = useState<PrefecturePopulation[]>([]);
@@ -174,7 +189,7 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
     '#16a085', '#f1c40f', '#8e44ad', '#27ae60', '#e67e22',
   ];
 
-  // グラフ上の数値を適切にフォーマットする関数
+  // グラフの数値を適切にフォーマットする関数
   const formatYAxis = (value: number): string => {
     if (value >= 1000000) {
       return `${(value / 1000000).toFixed(1)}M`;
@@ -186,14 +201,14 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
   };
 
   // カスタムツールチップの実装
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
+  const CustomTooltip = ({ active, payload, label }: TooltipContentProps) => {
+    if (active && payload && payload.length > 0) {
       return (
         <div className="bg-white p-3 border border-gray-200 shadow-md rounded">
           <p className="font-bold text-sm">{label}年</p>
           <div className="mt-1">
-            {payload.map((entry: any, index: number) => (
-              <div key={`tooltip-${index}`} className="flex items-center mt-1">
+            {payload.map((entry, index) => (
+              <div key={`tooltip-item-${index}`} className="flex items-center mt-1">
                 <div 
                   className="w-3 h-3 mr-2 rounded-full" 
                   style={{ backgroundColor: entry.color }}
@@ -209,55 +224,22 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
     return null;
   };
 
-  // CSVデータの生成
-  const generateCSV = () => {
-    if (chartData.length === 0) return '';
-
-    // ヘッダー行の生成 (年度, 都道府県1, 都道府県2, ...)
-    const headers = ['年度', ...selectedPrefectures.map(pref => pref.prefName)];
-    const headerRow = headers.join(',');
-
-    // データ行の生成
-    const rows = chartData.map(data => {
-      const rowValues = [data.year];
-      
-      selectedPrefectures.forEach(prefecture => {
-        const value = data[prefecture.prefName];
-        rowValues.push(value !== undefined ? value : '');
-      });
-      
-      return rowValues.join(',');
-    });
-
-    // ヘッダーとデータ行を結合してCSVを作成
-    return [headerRow, ...rows].join('\n');
-  };
-
-  // CSVファイルのダウンロード
-  const downloadCSV = () => {
-    const csv = generateCSV();
-    if (!csv) return;
-
+  // CSVファイルのダウンロード処理
+  const handleDownloadCSV = () => {
     // ファイル名の生成
     const date = new Date().toISOString().slice(0, 10);
     const filename = `${populationType}_人口データ_${date}.csv`;
-
-    // CSVファイルの作成とダウンロード
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    
+    // CSVデータを生成してダウンロード
+    const csvData = generateCSV(chartData, selectedPrefectures, populationType);
+    downloadCSV(csvData, filename);
   };
 
   if (selectedPrefInfo.isEmpty) {
     return (
       <div className="bg-gray-50 p-8 rounded-md text-center text-gray-500">
-        <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" role="img">
+          <title>グラフアイコン</title>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         <p className="text-lg font-medium">都道府県を選択してください</p>
@@ -278,10 +260,14 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
         <>
           <div className="flex justify-end mb-4">
             <button
-              onClick={downloadCSV}
+              type="button"
+              onClick={handleDownloadCSV}
               className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors duration-200"
+              aria-label="CSVファイルをダウンロード"
+              data-testid="csv-download-button"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" role="img">
+                <title>ダウンロードアイコン</title>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               CSVダウンロード
@@ -323,22 +309,28 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">{populationType}データ</h3>
               <button
+                type="button"
                 className="text-blue-600 hover:text-blue-800 flex items-center"
                 onClick={() => setIsTableVisible(!isTableVisible)}
+                aria-expanded={isTableVisible}
+                aria-controls="population-data-table"
               >
                 {isTableVisible ? '詳細を隠す' : '詳細を表示'}
                 <svg 
                   className={`ml-1 w-5 h-5 transform transition-transform ${isTableVisible ? 'rotate-180' : ''}`} 
                   fill="currentColor" 
                   viewBox="0 0 20 20"
+                  aria-hidden="true"
+                  role="img"
                 >
+                  <title>矢印アイコン</title>
                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
             </div>
             
             {isTableVisible && (
-              <div className="overflow-x-auto mt-2">
+              <div id="population-data-table" className="overflow-x-auto mt-2">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
