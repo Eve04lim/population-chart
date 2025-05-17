@@ -1,5 +1,6 @@
 import { fetchPopulation } from '@/api/services';
 import type { PopulationData, Prefecture } from '@/api/types';
+import RangeSlider from '@/components/atoms/RangeSlider';
 import { downloadCSV, generateCSV } from '@/utils/csv';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -18,6 +19,7 @@ import {
 interface PopulationChartProps {
   selectedPrefectures: Prefecture[];
   populationType: string;
+  darkMode?: boolean;
 }
 
 // 人口タイプの英語名（APIのレスポンスに対応）
@@ -52,12 +54,15 @@ type TooltipContentProps = TooltipProps<number, string> & {
   label?: string;
 };
 
-const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, populationType }) => {
+const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, populationType, darkMode = false }) => {
   const [prefPopulations, setPrefPopulations] = useState<PrefecturePopulation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [filteredChartData, setFilteredChartData] = useState<ChartData[]>([]);
   const [isTableVisible, setIsTableVisible] = useState(false);
+  const [yearRange, setYearRange] = useState<[number, number]>([1980, 2045]);
+  const [availableYears, setAvailableYears] = useState<[number, number]>([1980, 2045]);
   
   // prefPopulationsの最新値にアクセスするためのref
   const prefPopulationsRef = useRef<PrefecturePopulation[]>([]);
@@ -143,6 +148,8 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
   useEffect(() => {
     if (prefPopulations.length === 0) {
       setChartData([]);
+      setFilteredChartData([]);
+      setAvailableYears([1980, 2045]); // デフォルト値
       return;
     }
 
@@ -162,6 +169,14 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
     // 年の順番に並び替え
     const years = Array.from(yearsSet).sort((a, b) => a - b);
     
+    // 利用可能な年の範囲を設定
+    if (years.length > 0) {
+      const minYear = years[0];
+      const maxYear = years[years.length - 1];
+      setAvailableYears([minYear, maxYear]);
+      setYearRange([minYear, maxYear]); // 初期値は全範囲
+    }
+    
     // チャートデータの作成
     const data = years.map((year) => {
       const yearData: ChartData = { year };
@@ -180,7 +195,24 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
     });
     
     setChartData(data);
+    setFilteredChartData(data); // 初期状態では全データを表示
   }, [prefPopulations, populationType]);
+
+  // 年範囲が変更されたらチャートデータをフィルタリング
+  useEffect(() => {
+    if (chartData.length === 0) return;
+
+    const filtered = chartData.filter(
+      data => data.year >= yearRange[0] && data.year <= yearRange[1]
+    );
+    
+    setFilteredChartData(filtered);
+  }, [chartData, yearRange]);
+
+  // 年範囲の変更を処理する関数
+  const handleYearRangeChange = (values: [number, number]) => {
+    setYearRange(values);
+  };
 
   // 選択された都道府県を色に対応付けるための配列
   const colors = [
@@ -204,7 +236,7 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
   const CustomTooltip = ({ active, payload, label }: TooltipContentProps) => {
     if (active && payload && payload.length > 0) {
       return (
-        <div className="bg-white p-3 border border-gray-200 shadow-md rounded">
+        <div className={`p-3 border border-gray-200 shadow-md rounded ${darkMode ? 'bg-gray-800 text-white' : 'bg-white'}`}>
           <p className="font-bold text-sm">{label}年</p>
           <div className="mt-1">
             {payload.map((entry, index) => (
@@ -228,16 +260,22 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
   const handleDownloadCSV = () => {
     // ファイル名の生成
     const date = new Date().toISOString().slice(0, 10);
-    const filename = `${populationType}_人口データ_${date}.csv`;
+    const yearRangeText = `${yearRange[0]}-${yearRange[1]}`;
+    const filename = `${populationType}_人口データ_${yearRangeText}_${date}.csv`;
     
     // CSVデータを生成してダウンロード
-    const csvData = generateCSV(chartData, selectedPrefectures, populationType);
+    const csvData = generateCSV(filteredChartData, selectedPrefectures, populationType);
     downloadCSV(csvData, filename);
+  };
+
+  // 全期間を表示する関数
+  const handleResetYearRange = () => {
+    setYearRange(availableYears);
   };
 
   if (selectedPrefInfo.isEmpty) {
     return (
-      <div className="bg-gray-50 p-8 rounded-md text-center text-gray-500">
+      <div className={`p-8 rounded-md text-center ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-50 text-gray-500'}`}>
         <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" role="img">
           <title>グラフアイコン</title>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -258,36 +296,75 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
       )}
       {!loading && !error && chartData.length > 0 && (
         <>
-          <div className="flex justify-end mb-4">
-            <button
-              type="button"
-              onClick={handleDownloadCSV}
-              className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors duration-200"
-              aria-label="CSVファイルをダウンロード"
-              data-testid="csv-download-button"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" role="img">
-                <title>ダウンロードアイコン</title>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              CSVダウンロード
-            </button>
+          <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+            <div>
+              <h3 className={`text-lg font-medium ${darkMode ? 'text-white' : ''}`}>表示期間</h3>
+              <div className="w-full md:w-96 mt-1">
+                <RangeSlider
+                  min={availableYears[0]}
+                  max={availableYears[1]}
+                  defaultValues={yearRange}
+                  onChange={handleYearRangeChange}
+                  step={5}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleResetYearRange}
+                className={`px-3 py-1.5 rounded text-sm ${
+                  darkMode 
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                }`}
+                disabled={yearRange[0] === availableYears[0] && yearRange[1] === availableYears[1]}
+              >
+                全期間表示
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadCSV}
+                className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors duration-200"
+                aria-label="CSVファイルをダウンロード"
+                data-testid="csv-download-button"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" role="img">
+                  <title>ダウンロードアイコン</title>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSVダウンロード
+              </button>
+            </div>
           </div>
 
           <div className="h-96 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={chartData}
+                data={filteredChartData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#444' : '#eee'} />
                 <XAxis 
                   dataKey="year" 
-                  label={{ value: '年度', position: 'insideBottomRight', offset: -10 }} 
+                  label={{ 
+                    value: '年度', 
+                    position: 'insideBottomRight', 
+                    offset: -10,
+                    fill: darkMode ? '#aaa' : '#666'
+                  }} 
+                  stroke={darkMode ? '#aaa' : '#666'}
                 />
                 <YAxis 
                   tickFormatter={formatYAxis}
-                  label={{ value: '人口数', angle: -90, position: 'insideLeft' }} 
+                  label={{ 
+                    value: '人口数', 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    fill: darkMode ? '#aaa' : '#666'
+                  }} 
+                  stroke={darkMode ? '#aaa' : '#666'}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
@@ -305,12 +382,16 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
             </ResponsiveContainer>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className={`mt-6 pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">{populationType}データ</h3>
+              <h3 className={`text-lg font-medium ${darkMode ? 'text-white' : ''}`}>{populationType}データ ({yearRange[0]}年〜{yearRange[1]}年)</h3>
               <button
                 type="button"
-                className="text-blue-600 hover:text-blue-800 flex items-center"
+                className={`flex items-center ${
+                  darkMode 
+                    ? 'text-blue-400 hover:text-blue-300' 
+                    : 'text-blue-600 hover:text-blue-800'
+                }`}
                 onClick={() => setIsTableVisible(!isTableVisible)}
                 aria-expanded={isTableVisible}
                 aria-controls="population-data-table"
@@ -331,37 +412,43 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
             
             {isTableVisible && (
               <div id="population-data-table" className="overflow-x-auto mt-2">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className={`min-w-full divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                  <thead className={darkMode ? 'bg-gray-800' : 'bg-gray-50'}>
                     <tr>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className={`px-4 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
                         都道府県
                       </th>
-                      {chartData.map(item => (
+                      {filteredChartData.map(item => (
                         <th 
                           key={item.year} 
                           scope="col" 
-                          className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          className={`px-4 py-3 text-right text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}
                         >
                           {item.year}年
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
                     {selectedPrefectures.map((prefecture, index) => (
-                      <tr key={prefecture.prefCode} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                      <tr key={prefecture.prefCode} className={`${
+                        index % 2 === 0 
+                          ? darkMode ? 'bg-gray-800/50' : 'bg-gray-50' 
+                          : darkMode ? 'bg-gray-900' : 'bg-white'
+                      }`}>
+                        <td className={`px-4 py-3 whitespace-nowrap ${darkMode ? 'text-white' : ''}`}>
                           <div className="flex items-center">
                             <div 
                               className="w-3 h-3 mr-2 rounded-full" 
                               style={{ backgroundColor: colors[index % colors.length] }}
                             />
-                            <div className="text-sm font-medium text-gray-900">{prefecture.prefName}</div>
+                            <div className={`text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                              {prefecture.prefName}
+                            </div>
                           </div>
                         </td>
-                        {chartData.map(data => (
-                          <td key={data.year} className="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-500">
+                        {filteredChartData.map(data => (
+                          <td key={data.year} className={`px-4 py-3 whitespace-nowrap text-right text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                             {data[prefecture.prefName] 
                               ? (data[prefecture.prefName] as number).toLocaleString() 
                               : '-'}
