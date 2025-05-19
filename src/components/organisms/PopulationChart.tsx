@@ -239,14 +239,14 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
         <div className={`p-3 border border-gray-200 shadow-md rounded ${darkMode ? 'bg-gray-800 text-white' : 'bg-white'}`}>
           <p className="font-bold text-sm">{label}年</p>
           <div className="mt-1">
-            {payload.map((entry, index) => (
-              <div key={`tooltip-item-${index}`} className="flex items-center mt-1">
+            {payload.map((entry) => (
+              <div key={`tooltip-${entry.dataKey}`} className="flex items-center mt-1">
                 <div 
                   className="w-3 h-3 mr-2 rounded-full" 
                   style={{ backgroundColor: entry.color }}
                 />
                 <span className="mr-1">{entry.name}:</span>
-                <span className="font-semibold">{entry.value.toLocaleString()}人</span>
+                <span className="font-semibold">{entry.value?.toLocaleString() ?? '-'}人</span>
               </div>
             ))}
           </div>
@@ -255,7 +255,7 @@ const PopulationChart: React.FC<PopulationChartProps> = ({ selectedPrefectures, 
     }
     return null;
   };
-
+  
   // CSVファイルのダウンロード処理
   const handleDownloadCSV = () => {
     // ファイル名の生成

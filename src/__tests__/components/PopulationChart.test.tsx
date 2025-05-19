@@ -18,7 +18,13 @@ jest.mock('@/utils/csv', () => ({
 
 // RangeSliderをモック化
 jest.mock('@/components/atoms/RangeSlider', () => {
-  return function MockRangeSlider({ min, max, defaultValues, onChange, disabled }: any) {
+  return function MockRangeSlider({ min, max, onChange, disabled }: {
+    min: number;
+    max: number;
+    defaultValues?: [number, number];
+    onChange: (values: [number, number]) => void;
+    disabled?: boolean;
+  }) {
     return (
       <div data-testid="range-slider">
         <span>Range: {min} - {max}</span>

@@ -123,9 +123,10 @@ describe('RangeSlider', () => {
     const sliders = screen.getAllByRole('slider');
     
     // disabled属性が設定されているか確認
-    sliders.forEach(slider => {
+    // for...of を使用して forEach を置き換え
+    for (const slider of sliders) {
       expect(slider).toBeDisabled();
-    });
+    }
     
     // 注: Jest環境では disabled 属性があっても JavaScript イベントはトリガーされるので
     // イベントハンドラーのテストは省略し、属性のみを確認

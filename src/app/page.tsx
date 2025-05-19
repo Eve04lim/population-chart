@@ -41,7 +41,7 @@ export default function Home() {
   };
 
   // 人口タイプの説明文章
-  const populationTypeDescriptions = {
+  const populationTypeDescriptions: Record<string, string> = {
     '総人口': '全ての年齢層を含む総人口の推移です。',
     '年少人口': '15歳未満の人口推移です。',
     '生産年齢人口': '15歳から64歳までの人口推移です。',
@@ -102,7 +102,8 @@ export default function Home() {
         <section className="bg-blue-50 p-6 rounded-lg border border-blue-100">
           <div className="flex items-start">
             <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" role="img">
+                <title>情報アイコン</title>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>

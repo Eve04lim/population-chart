@@ -25,11 +25,11 @@ export const generateCSV = (
 
   // データ行の生成
   const rows = chartData.map(data => {
-    const rowValues = [data.year];
+    const rowValues = [data.year.toString()]; // yearを文字列に変換
     
     for (const prefecture of selectedPrefectures) {
       const value = data[prefecture.prefName];
-      rowValues.push(value !== undefined ? value : '');
+      rowValues.push(value !== undefined ? String(value) : ''); // 値を文字列に変換
     }
     
     return rowValues.join(',');
