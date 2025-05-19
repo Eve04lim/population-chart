@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 都道府県別人口推移グラフ
 
-## Getting Started
+このプロジェクトは、ゆめみフロントエンドコーディング試験の課題として作成した、都道府県別の人口推移を可視化するSPA（Single Page Application）です。React（Next.js）を使用し、各都道府県の人口データをグラフで表示できます。
 
-First, run the development server:
+## 機能
+
+- 都道府県の一覧表示とチェックボックスによる選択
+- 選択した都道府県の人口推移をグラフで表示
+- 「総人口」「年少人口」「生産年齢人口」「老年人口」の切り替え表示
+- 年代範囲の選択機能
+- CSV形式でのデータダウンロード
+- 詳細データをテーブル形式で表示
+- レスポンシブデザイン（PC・タブレット・スマートフォン対応）
+
+## 使用技術
+
+- **フレームワーク**: Next.js 15.x
+- **言語**: TypeScript
+- **スタイリング**: Tailwind CSS
+- **グラフライブラリ**: Recharts
+- **HTTP通信**: Axios
+- **テスト**: Jest, React Testing Library
+- **リンター/フォーマッター**: ESLint, Prettier, Biome
+- **デプロイ**: Vercel
+
+## ローカルでの実行方法
+
+このプロジェクトを実行するには、Node.jsとnpmがインストールされている必要があります。
 
 ```bash
+# リポジトリのクローン
+git clone https://github.com/Eve04lim/population-chart
+cd population-chart
+
+# 依存関係のインストール
+npm install
+
+# 開発サーバーの起動
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開くと、アプリケーションが表示されます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 実装について
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### コンポーネント構成
 
-## Learn More
+- **Atoms**: チェックボックスやスライダーなどの基本的なUI要素
+- **Molecules**: 複数のAtomsを組み合わせた、都道府県チェックボックスなど
+- **Organisms**: PrefectureSelector（都道府県選択）やPopulationChart（人口グラフ）などの大きな機能単位
 
-To learn more about Next.js, take a look at the following resources:
+### API通信
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+ゆめみフロントエンドコーディング試験APIを使用して、以下のデータを取得しています：
+- 都道府県一覧
+- 都道府県ごとの人口構成データ
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### レスポンシブデザイン
 
-## Deploy on Vercel
+Tailwind CSSを使用して、以下のブレイクポイントでレスポンシブデザインを実装：
+- モバイル: ~767px
+- タブレット: 768px~1023px
+- デスクトップ: 1024px~
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## テスト
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Jest と React Testing Library を使用して、コンポーネントのテストを実装しています。
+
+```bash
+# テストの実行
+npm test
+
+# カバレッジレポートの確認
+npm run test:coverage
+```
+
+## 開発で工夫した点
+
+1. **パフォーマンス最適化**:
+   - 必要な都道府県データのみをAPIから取得
+   - メモ化を活用して不要な再レンダリングを防止
+
+2. **ユーザー体験の向上**:
+   - 選択した都道府県がわかりやすいよう視覚的フィードバックを追加
+   - 初めて選択した際にグラフセクションへスクロール
+
+3. **アクセシビリティ**:
+   - セマンティックなHTMLを使用
+   - スクリーンリーダー対応のラベルとARIA属性
+
+4. **コード品質**:
+   - TypeScriptによる型安全性の確保
+   - コンポーネントの適切な分割
+   - テストカバレッジの向上
+
+## 課題と改善点
+
+開発を進める中で、以下のような課題がありました：
+
+1. グラフの色分けをより効果的にして視認性を高めたい
+2. API通信のエラーハンドリングをさらに改善したい
+3. データが多い場合のパフォーマンス最適化
+
+これらは今後の改善点として取り組みたいと考えています。
+
+---
+
+このプロジェクトは、株式会社ゆめみのフロントエンドコーディング試験として作成されました。
