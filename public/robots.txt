@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://population-chart-ihlc.vercel.app/sitemap.xml
